@@ -21,6 +21,7 @@ import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
@@ -30,6 +31,9 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 /**
  * Handler for requests to Lambda function.
  */
+
+
+
 public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
 
     private static void log(LambdaLogger logger, String msg) {
@@ -39,6 +43,17 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             System.out.println(msg);
         }
     }
+    
+    /*
+    private S3Client s3Client = S3Client.builder()
+        .region(Region.EU_WEST_1)
+        .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
+        .build();
+    */
+
+    private S3Client s3Client = S3Client.builder().build();
+    //
+    //.httpClient(UrlConnectionHttpClient.builder().build())
    public APIGatewayProxyResponseEvent handleRequest(final APIGatewayProxyRequestEvent input, final Context context) {
         Map<String, String> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
@@ -48,6 +63,7 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
         LambdaLogger logger = null;
         if ( context != null ) {
             logger = context.getLogger();
+            log(logger, "Context was NOT null");
         }
 
         log(logger, "Hello CloudWatch!");
@@ -81,17 +97,19 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             //log(logger,"credentialsProvider="+credentialsProvider);
             Region region = Region.US_EAST_1;
             log(logger,"region="+region);
-            S3Client s3 = S3Client.builder()
-                .region(region)
-                .build();
-            log(logger,"s3client="+s3);
-
+            
+            //S3Client s3 = S3Client.builder().region(region).build();
+            log(logger,"s3client="+s3Client);
+            
 	        //S3Client s3 = S3Client.builder().region(region).build();
-	        //List<String> objects = listBucketObjects(s3, bucketName);
+	        List<String> objects = listBucketObjects(s3Client, bucketName, logger);
+            objects.add("one");
+            /*
             List<String> objects = new ArrayList<String>();
-            objects.add(s3.toString());
+            objects.add(s3Client.toString());
             objects.add("one");
             objects.add("two");
+            */
 	        String objs = objects.toString();
 	        System.out.println("bucket="+bucketName+"Your objects are:"+objs);
 	        log(logger,"bucket="+bucketName+"Your objects are:"+objs);
@@ -110,24 +128,27 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
     }
 
 
-    public static List<String> listBucketObjects(S3Client s3, String bucketName ) {
+    public static List<String> listBucketObjects(S3Client s3, String bucketName, LambdaLogger logger ) {
 
+        log(logger,"listBucketObjects - called");
         List<String> result = new ArrayList<String>();
-        result.add("one");
-        result.add("two");
-        return result;
-        /*
+        //result.add("one");
+        //result.add("two");
+        //return result;
+        /*  */
         try {
-           
 
             ListObjectsRequest listObjects = ListObjectsRequest
                 .builder()
                 .bucket(bucketName)
                 .build();
-
+            log(logger, "listObjects="+listObjects);
             ListObjectsResponse res = s3.listObjects(listObjects);
+            log(logger, "res="+res);
             List<S3Object> objects = res.contents();
+            log(logger, "objects="+objects);
             for (S3Object myValue : objects) {
+                log(logger, "Object-->"+myValue.key());
                 result.add( myValue.key() );
                 //System.out.print("\n The name of the key is " + myValue.key());
                 //System.out.print("\n The object is " + calKb(myValue.size()) + " KBs");
@@ -135,12 +156,17 @@ public class App implements RequestHandler<APIGatewayProxyRequestEvent, APIGatew
             }
 
         } catch (S3Exception e) {
-            System.err.println(e.awsErrorDetails().errorMessage());
+            //System.err.println(e.awsErrorDetails().errorMessage());
+            log(logger,"S3ERROR:"+e.awsErrorDetails().errorMessage());
             throw e;
             //System.exit(1);
+        } catch(Exception e) {
+            log(logger,"ERROR:"+e);
+
+
         }
         return result;
-        */
+        /* */
     }
 
     //convert bytes to kbs.
